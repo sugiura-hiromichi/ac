@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 anyhow = "*"
 clap = { version = "*", features = ["derive"] }
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
