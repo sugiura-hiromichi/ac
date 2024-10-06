@@ -46,9 +46,9 @@ pub enum Command {
 	/// TODO: currently `pm` only support creating a new file. add feature of creating new project
 	New,
 	// filetype specific commands
-	/// For compiled language
 	Build,
 	Deploy,
+	Open,
 }
 
 #[derive(Clone, ValueEnum, Debug, strum_macros::EnumIter,)]
