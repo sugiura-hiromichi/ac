@@ -1,6 +1,6 @@
 # my personal code runner
 
-`a` is project base, editor(neovim) first code runner.
+`ac` is project base, editor(neovim) first code runner.
 
 project base style provides additional project management functionality. editor first philosophy
 enables easy integration to an editor.
