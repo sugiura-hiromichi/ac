@@ -37,27 +37,33 @@ impl Cli {
 #[derive(Subcommand,)]
 pub enum Command {
 	// general commands
+	/// For markup language, this command will preview target,
+	/// In other cases, this command will build & run executable. if package manager like
+	/// `cargo` already exist, this will follow its way.
 	Run,
 	Test,
+	Fix,
+	/// TODO: currently `pm` only support creating a new file. add feature of creating new project
+	New,
 	// filetype specific commands
+	/// For compiled language
 	Build,
 	Deploy,
 }
 
-#[derive(Clone, ValueEnum, Debug,)]
+#[derive(Clone, ValueEnum, Debug, strum_macros::EnumIter,)]
 pub enum ProjectType {
-	Rust,
-	Cargo,
 	RustNvimConfig,
-	Markdown,
+	Cargo,
+	Rust,
 	Zenn,
+	Markdown,
 	LuaNvimConfig,
 	Lua,
 	TypeScript,
 	GAS,
 	/// render editing / generated html file
 	WebSite,
-	TOML,
 	C,
 	CPP,
 	Swift,

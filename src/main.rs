@@ -1,38 +1,39 @@
-#![feature(pattern)]
-#![allow(unused_variables, unused_imports, dead_code)]
+#![feature(pattern, never_type, file_buffered)]
 use anyhow::anyhow;
-use anyhow::Error;
 use anyhow::Result;
-use clap::Parser;
-use clap::ValueEnum;
-use cli::Cli;
 use cli::ProjectType;
-use std::path::Path;
 use std::path::PathBuf;
+use strum::IntoEnumIterator;
 
 mod cli;
+mod serde_type;
 
-/// 保持している、対象となるプロジェクトについての情報を元に、
-/// コマンドの適切な実行を推論する役割を担います
+/// `ac`に渡された引数、実行された環境、設定ファイルを元に以下の役割を果たします
+/// - `ac`に渡された引数が適切か確認し、問題があればユーザーと対話しながら修正する
+/// - 設定ファイルのエラーをチェックし、問題なければロードする
+/// - 上記の手順を通じてチェックされたデータを元に`ac`が対象とするプロジェクト
 struct ProjectManager {
 	cli:          cli::Cli,
 	work_dir:     PathBuf,
 	project_root: PathBuf,
+	config:       ProjectManagerConfig,
 }
 
 impl ProjectManager {
 	fn init() -> Result<Self,> {
 		let cur_dir = std::env::current_dir()?;
-		//let cur_dir = cur_dir.as_path();
 		let mut pm = Self {
 			cli:          cli::Cli::init(),
 			work_dir:     cur_dir.clone(),
 			project_root: cur_dir,
+			config:       Self::load_config()?,
 		};
 
 		pm.detect_project()?;
 		Ok(pm,)
 	}
+
+	fn load_config() -> Result<ProjectManagerConfig,> { todo!() }
 
 	/// この関数はコマンドが実行されているpathを必要とします
 	/// このpathは`Cli`のコマンドラインから渡されたinputをparseする、
@@ -40,82 +41,134 @@ impl ProjectManager {
 	///
 	/// # 動作
 	///
-	/// - `cli.project_type`がNoneだった場合、プロジェクトの種類を検出して`cli.
-	/// project_type`にセットします
-	/// - コマンドが実行されたpathを戻り値として返します
-	/// - プロジェクトのルートディレクトリを戻り値として返します
-	///
-	/// # 戻り値
-	///
-	/// この関数は`anyhow::Result<(Option<cli::ProjectType,>,
-	/// PathBuf, PathBuf)`型を返します
-	/// エラーが起こった場合はErr()、
-	/// 処理が正常に完了した場合は`(Some(project_type), work_dir)`
-	/// をOk()にラップして返します
-	fn detect_project(&mut self,) -> Result<(),> { todo!() }
+	/// - `cli.project_type`がNoneだった場合、プロジェクトの種類を検出して`cli.project_type`
+	///   にセットします
+	fn detect_project(&mut self,) -> Result<(),> {
+		self.root_and_type()?;
+		self.target_file()
+	}
 
-	/// この関数はプロジェクトのルートディレクトリのpathを返します
-	fn project_root(&mut self,) -> Result<(),> {
+	/// この関数はプロジェクトのルートディレクトリのpathを`self.project_root`にセットします
+	/// その際に、`self.cli.project_type`が適切にセットされているか検証します
+	///
+	/// # Return
+	///
+	/// この関数は以下のケースでエラーを返します
+	/// - ユーザーが指定したプロジェクトタイプがおかしい時
+	/// - プロジェクトタイプを推測できない時
+	///
+	/// # TODO:
+	///
+	/// - プロジェクトルートを探す際に`.git/`を考慮する
+	/// - 設定を反映する
+	fn root_and_type(&mut self,) -> Result<(),> {
 		use ProjectType::*;
 		match self.cli.project_type {
 			// ユーザーがプロジェクトタイプを指定した場合
 			Some(ref pt,) => match pt {
 				Rust => {
-					if let Some(p,) = self.target_exist_upstream("main.rs",)? {
+					if let Some(p,) = self.lookup("main.rs",)? {
 						self.project_root = p;
 					}
 				},
-				Cargo => match self.target_exist_upstream("Cargo.toml",)? {
-					None => {
-						let e = Err(anyhow!(
-							"specified project_type `{:?}` seems incorrect",
-							self.cli.project_type.take().unwrap()
-						),);
-						return e;
-					},
+				Cargo => match self.lookup("Cargo.toml",)? {
 					Some(p,) => self.project_root = p,
+					None => self.missed_project()?,
 				},
 				RustNvimConfig => {
-					let config_home = option_env!("XDG_CONFIG_HOME")
-						.map_or(format!("{}/.config", env!("HOME")), |p| p.to_string(),);
-					if !self.work_dir.to_str().unwrap().contains(&config_home,) {
-						return Err(anyhow!(
-							"current directory: {}\n seems not in `$HOME/.config` or \
-							 `$XDG_CONFIG_HOME/`.\n if you are in correct path, consider checking \
-							 $HOME or $XDG_CONFIG_HOME.",
-							self.work_dir.display()
-						),);
-					}
-					match self.target_exist_upstream("Cargo.toml",)? {
+					// TODO: adding support of configuration file then, load config home directory
+					// from `self.config.config_home`
+					// or automatically determine by given dotfile repository's url
+					todo!("this project type is currently not supported");
+					match self.lookup("Cargo.toml",)? {
 						Some(p,) => self.project_root = p,
-						None => (),
+						None => self.missed_project()?,
 					}
 				},
-				Markdown => todo!(),
-				Zenn => todo!(),
-				LuaNvimConfig => todo!(),
-				Lua => todo!(),
-				TypeScript => todo!(),
-				GAS => todo!(),
-				WebSite => todo!(),
-				TOML => todo!(),
-				C => todo!(),
-				CPP => todo!(),
-				Swift => todo!(),
-				Python => todo!(),
+				Zenn => match self.lookup("package.json",)? {
+					Some(p,) => {
+						let mut file = p.clone();
+						file.push("package.json",);
+
+						let pkg_jsn: serde_json::Value =
+							serde_json::from_reader(std::fs::File::open_buffered(file,)?,)?;
+						match pkg_jsn.get("dependencies",) {
+							Some(v1,) if matches!(v1.get("zenn-cli"), Some(_)) => {
+								self.project_root = p
+							},
+							_ => return Err(anyhow!("zenn-cli seems not installed locally"),),
+						}
+					},
+					None => {
+						// `zenn-cli`がグローバルにインストールされていた場合
+						if std::process::Command::new("which",).arg("zenn",).output().is_ok() {
+							let art_p = self.lookup("articles",)?;
+							let book_p = self.lookup("books",)?;
+							match (art_p, book_p,) {
+								(Some(ap,), Some(bp,),) => {
+									let ap_len = ap.components().count();
+									let bp_len = bp.components().count();
+
+									if ap_len > bp_len {
+										self.project_root = ap;
+									} else {
+										self.project_root = bp;
+									}
+								},
+								(_, Some(p,),) | (Some(p,), _,) => self.project_root = p,
+								(None, None,) => self.missed_project()?,
+							}
+						} else {
+							self.missed_project()?
+						}
+					},
+				},
+				LuaNvimConfig => {
+					// RustNvimConfigとほぼ一緒
+				},
+				TypeScript => {
+					if let Some(p,) = self.lookup("package.json",)? {
+						self.project_root = p;
+					}
+				},
+				GAS => match self.lookup("appscript.json",)? {
+					Some(p,) => self.project_root = p,
+					None => self.missed_project()?,
+				},
+				WebSite => match self.lookup("index.html",)? {
+					Some(p,) => self.project_root = p,
+					None => self.missed_project()?,
+				},
+				// TODO: `C/CPP`: makefile support
+				Markdown | Lua | C | CPP | Swift | Python => (),
 			},
 			// ユーザーがプロジェクトタイプを指定しなかった場合
 			None => {
-				// code which detect project root
-				self.project_type()?;
-				todo!()
+				// PERF: `self.work_dir`にあるファイル、
+				// フォルダの情報を元にある程度プロジェクトタイプを絞る
+				for pt in ProjectType::iter() {
+					self.cli.project_type = Some(pt,);
+					if self.root_and_type().is_ok() {
+						break;
+					}
+				}
 			},
 		};
 
 		Ok((),)
 	}
 
-	fn project_type_miss(&mut self,) -> Result<!,> {
+	/// ユーザーが指定したプロジェクトタイプが間違っていると考えられる場合に適切なエラーを投げる補助関数です
+	///
+	/// # TODO: ↓
+	///
+	/// プロジェクトタイプが間違っていた場合の処理として、ユーザーに
+	/// 1. プロジェクトタイプを再入力してもらう
+	/// 2. 指定されたプロジェクトを新たに作成する
+	/// 3. コマンドを終了する
+	/// 4. etc..
+	/// というふうに選択肢を与える
+	fn missed_project(&mut self,) -> Result<!,> {
 		Err(anyhow!(
 			"specified project_type `{:?}` seems incorrect",
 			self.cli.project_type.take().unwrap()
@@ -132,70 +185,30 @@ impl ProjectManager {
 	//
 	// 現在のパスが`$HOME`を含まない場合 →
 	// `/`内に`target`を含むパスが存在しない場合`Ok(None)`を返します
-	fn target_exist_upstream(&self, target: &str,) -> Result<Option<PathBuf,>,> {
+	fn lookup(&self, target: &str,) -> Result<Option<PathBuf,>,> {
 		let mut upper_path = self.work_dir.clone();
 
-		for element in self.work_dir.iter().rev() {
+		loop {
 			for entry in upper_path.read_dir()? {
 				if entry?.file_name() == target {
 					return Ok(Some(upper_path,),);
 				}
 			}
 
-			let tmp = upper_path.pop();
-			assert!(tmp);
-
-			if upper_path.to_str().unwrap() == env!("HOME") {
-				return Ok(None,);
+			if upper_path.to_str().unwrap() == env!("HOME") || !upper_path.pop() {
+				break;
 			}
 		}
 		Ok(None,)
 	}
 
-	fn project_type(&mut self,) -> Result<(),> {
-		let mut fts = vec![];
-
-		// `work_dir`内のファイル・ディレクトリを走査します
-		// 条件に合う拡張子が見つかった場合、`fts`に格納します
-		for entry in self.work_dir.read_dir()? {
-			let path = entry?.path();
-
-			// `path`がファイルだった場合拡張子が有効なものであれば`fts`に追加
-			if path.is_file() {
-				let extention = path.extension();
-				match extention {
-					Some(ext,) => {
-						let filetype = ext.to_str().filter(|&s| {
-							s == "rs"
-								|| s == "md" || s == "lua"
-								|| s == "ts" || s == "tsx"
-								|| s == "toml" || s == "c"
-								|| s == "cpp" || s == "h"
-								|| s == "html" || s == "swift"
-								|| s == "py"
-						},);
-						if let Some(ft,) = filetype {
-							fts.push(ft.to_owned(),);
-						}
-					},
-					None =>
-					// TODO: set filetype for special name file such like
-					// `.zshenv`
-					{
-						()
-					},
-				}
-			}
-		}
-		todo!()
-	}
-
-	fn target_file() -> Result<(),> { Ok((),) }
+	fn target_file(&mut self,) -> Result<(),> { Ok((),) }
 }
+
+struct ProjectManagerConfig {}
 
 /// 実際のコマンドの実行とエラー処理はこの`main`関数で行われます
 fn main() -> Result<(),> {
-	let work_dir = std::env::current_dir()?;
 	let pm = ProjectManager::init()?;
 
 	Ok((),)
