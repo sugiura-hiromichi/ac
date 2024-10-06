@@ -1,14 +1,9 @@
-# My Personal `Project Manager`
+# my personal code runner
 
-`pm` takes works that I do not want to do twice.
+`a` is project base, editor(neovim) first code runner.
 
-This command has its origin on neovim user command which executes (or build & run) file of current
-buffer. I extract this neovim command from lua source file and reimplement by rust for more
-extensibility.
-
-# TODO
-
-- [ ] auto generate docs & readme
+project base style provides additional project management functionality. editor first philosophy
+enables easy integration to an editor.
 
 # Planned Project Type Support
 
