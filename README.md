@@ -39,8 +39,7 @@ Order is priority
 
 # TODO
 
-- [-] ドキュメンテーションの用意
-- [-] ↑を英語に(何かしらの翻訳サービス使いたい)
+`src/main.rs`の冒頭を参照
 
 # Acknowledgements
 
