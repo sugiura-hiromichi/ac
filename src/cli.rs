@@ -43,12 +43,16 @@ pub enum Command {
 	Run,
 	Test,
 	Fix,
+	// makefile support
+	Make,
 	/// TODO: currently `pm` only support creating a new file. add feature of creating new project
 	New,
 	// filetype specific commands
 	Build,
 	Deploy,
 	Open,
+	// open config file e.g. Cargo.toml
+	Config,
 }
 
 #[derive(Clone, ValueEnum, Debug, strum_macros::EnumIter,)]
@@ -56,6 +60,7 @@ pub enum ProjectType {
 	RustNvimConfig,
 	Cargo,
 	Rust,
+	Lisp,
 	Zenn,
 	Markdown,
 	LuaNvimConfig,
