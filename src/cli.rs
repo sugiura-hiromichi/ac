@@ -43,6 +43,7 @@ pub enum Command {
 	Run,
 	Test,
 	Fix,
+	Init,
 	// makefile support
 	Make,
 	/// TODO: currently `pm` only support creating a new file. add feature of creating new project
