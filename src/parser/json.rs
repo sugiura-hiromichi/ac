@@ -1,4 +1,3 @@
-//! this module provides tools used for serialize/deserialize things
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
