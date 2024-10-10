@@ -11,3 +11,4 @@ serde_json = "*"
 strum = "*"
 strum_macros = "*"
 sugiura-hiromichi_mylibrary = "*"
+syn = { version = "*", features = ["full"] }
