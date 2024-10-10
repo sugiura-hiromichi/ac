@@ -21,10 +21,10 @@ mod util {
 
 	#[derive(Debug,)]
 	pub struct Queue<T: Clone,> {
-		body:     Option<Box<Node<T,>,>,>,
-		pub head: *mut Option<Box<Node<T,>,>,>,
+		body: Option<Box<Node<T,>,>,>,
+		head: *mut Option<Box<Node<T,>,>,>,
 		/// このメンバーは、常に`Node`の`next`メンバーを指しています
-		pub last: *mut Option<Box<Node<T,>,>,>,
+		last: *mut Option<Box<Node<T,>,>,>,
 	}
 
 	impl<T: Clone,> Queue<T,> {
@@ -71,7 +71,7 @@ mod util {
 	}
 
 	#[derive(Clone, Debug,)]
-	pub struct Node<T: Clone,> {
+	struct Node<T: Clone,> {
 		val:  T,
 		next: Option<Box<Node<T,>,>,>,
 	}
