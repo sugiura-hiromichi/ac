@@ -1,7 +1,7 @@
 use crate::cli;
+use crate::util;
 use anyhow::anyhow;
 use anyhow::Result;
-use std::path::Path;
 use std::path::PathBuf;
 use strum::IntoEnumIterator;
 
@@ -65,6 +65,7 @@ impl ProjectManager {
 						self.project_root = p;
 					}
 				},
+				// TODO: add support for `rust-project.json`
 				Cargo => match self.lookup("Cargo.toml",)? {
 					Some(p,) => self.project_root = p,
 					None => self.missed_project()?,
@@ -79,6 +80,7 @@ impl ProjectManager {
 						None => self.missed_project()?,
 					}
 				},
+				Lisp => todo!(),
 				Zenn => match self.lookup("package.json",)? {
 					Some(p,) => {
 						let mut file = p.clone();
@@ -134,6 +136,7 @@ impl ProjectManager {
 					None => self.missed_project()?,
 				},
 				// TODO: `C/CPP`: makefile support
+				// NOTE: why don't we restrict makefile support only for `C/CPP`?
 				Markdown | Lua | C | CPP | Swift | Python => (),
 			},
 			// ユーザーがプロジェクトタイプを指定しなかった場合
