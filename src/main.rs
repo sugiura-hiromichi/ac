@@ -4,6 +4,9 @@
 //! - [-] AI機能の追加
 //! - [-] ドキュメンテーションの用意
 //! - [-] ↑を英語に(何かしらの翻訳サービス使いたい)
+//! - [-] コマンドの機能をライブラリとして提供する `libac`
+//! - [-] ↑その上で、lspのように`ac`にプロトコルとしての役割を持たせる。言うなればdep(stands for
+//! develping environment protocol)
 
 use anyhow::anyhow;
 use anyhow::Result;
@@ -12,8 +15,8 @@ use project::ProjectManager;
 use std::path::PathBuf;
 
 mod cli;
+mod parser;
 mod project;
-mod serde_type;
 mod util {
 
 	#[derive(Debug,)]
