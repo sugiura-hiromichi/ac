@@ -6,9 +6,11 @@ edition = "2021"
 [dependencies]
 anyhow = "*"
 clap = { version = "*", features = ["derive"] }
+proc-macro2 = "*"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 strum = "*"
 strum_macros = "*"
 sugiura-hiromichi_mylibrary = "*"
 syn = { version = "*", features = ["full"] }
+toml = { version = "*", features = ["parse"] }
