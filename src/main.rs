@@ -1,12 +1,13 @@
 #![feature(pattern, never_type, file_buffered)]
 #![allow(dead_code, unused_imports, unused_variables, unreachable_code)]
 //! # TODO:
-//! - [-] AI機能の追加
-//! - [-] ドキュメンテーションの用意
-//! - [-] ↑を英語に(何かしらの翻訳サービス使いたい)
-//! - [-] コマンドの機能をライブラリとして提供する `libac`
-//! - [-] ↑その上で、lspのように`ac`にプロトコルとしての役割を持たせる。言うなればdep(stands for
+//! - [ ] AI機能の追加
+//! - [ ] ドキュメンテーションの用意
+//! - [ ] ↑を英語に(何かしらの翻訳サービス使いたい)
+//! - [ ] コマンドの機能をライブラリとして提供する `libac`
+//! - [ ] ↑その上で、lspのように`ac`にプロトコルとしての役割を持たせる。言うなればdep(stands for
 //! develping environment protocol)
+//! - [ ] 履歴機能の追加
 
 use anyhow::anyhow;
 use anyhow::Result;
