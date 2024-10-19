@@ -32,6 +32,31 @@ impl Cli {
 		}
 		cli
 	}
+
+	/// この関数は`crate::project::ProjectManager::target_file`内で使われる事を想定しています
+	/// `self.project_type`と`self.command`から、どのファイル名を探すべきかを返します
+	///
+	/// # Return
+	///
+	/// `self.project_type`がCargoの場合など、ターゲットファイルが必要ないケースでは`None`を返します
+	///
+	/// # TODO
+	///
+	/// - `opt`を使用する
+	pub fn target_hint(&self, opt: Option<&str,>,) -> Option<&str,> {
+		assert!(self.project_type.is_some());
+		assert!(self.command.is_some());
+
+		use Command::*;
+		use ProjectType::*;
+		match self.project_type.as_ref().unwrap() {
+			&RustNvimConfig | &Cargo | &Markdown | &GAS | &LuaNvimConfig | &Zenn => None,
+			&Rust | &Scheme | &Lisp | &Lua | &TypeScript | &C | &CPP | &Swift | &Python => {
+				self.command.as_ref().unwrap().default_target()
+			},
+			WebSite => Some("index.html",),
+		}
+	}
 }
 
 #[derive(Subcommand,)]
@@ -56,11 +81,24 @@ pub enum Command {
 	Config,
 }
 
+impl Command {
+	fn default_target(&self,) -> Option<&str,> {
+		use Command::*;
+		match self {
+			&Run | &Build => Some("main",),
+			&Test => Some("test",),
+			&Make => Some("Makefile",),
+			_ => None,
+		}
+	}
+}
+
 #[derive(Clone, ValueEnum, Debug, strum_macros::EnumIter,)]
 pub enum ProjectType {
 	RustNvimConfig,
 	Cargo,
 	Rust,
+	Scheme,
 	Lisp,
 	Zenn,
 	Markdown,
@@ -74,4 +112,8 @@ pub enum ProjectType {
 	CPP,
 	Swift,
 	Python,
+}
+
+impl ProjectType {
+	pub fn valid_commands(&self,) -> Vec<Command,> { todo!() }
 }

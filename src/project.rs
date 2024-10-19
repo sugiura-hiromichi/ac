@@ -1,7 +1,9 @@
 use crate::cli;
+use crate::parser;
 use crate::util;
 use anyhow::anyhow;
 use anyhow::Result;
+use std::fmt::Result;
 use std::path::PathBuf;
 use strum::IntoEnumIterator;
 
@@ -39,7 +41,7 @@ impl ProjectManager {
 	///   にセットします
 	fn detect_project(&mut self,) -> Result<(),> {
 		self.root_and_type()?;
-		self.target_file()
+		self.init_pick()
 	}
 
 	/// この関数はプロジェクトのルートディレクトリのpathを`self.project_root`にセットします
@@ -80,6 +82,7 @@ impl ProjectManager {
 						None => self.missed_project()?,
 					}
 				},
+				Scheme => todo!(),
 				Lisp => todo!(),
 				Zenn => match self.lookup("package.json",)? {
 					Some(p,) => {
@@ -157,7 +160,7 @@ impl ProjectManager {
 
 	/// ユーザーが指定したプロジェクトタイプが間違っていると考えられる場合に適切なエラーを投げる補助関数です
 	///
-	/// # TODO: ↓
+	/// # TODO
 	///
 	/// プロジェクトタイプが間違っていた場合の処理として、ユーザーに
 	/// 1. プロジェクトタイプを再入力してもらう
@@ -199,36 +202,126 @@ impl ProjectManager {
 		Ok(None,)
 	}
 
+	fn lookdown(&self, target: &str,) -> Result<Vec<PathBuf,>,> {
+		let mut rslt = vec![];
+		let mut que = util::Queue::new();
+		que.init(self.project_root.clone(),);
+
+		while let Some(sub_dir,) = que.dequeue() {
+			for entry in sub_dir.read_dir()? {
+				let fpath = entry?.path();
+
+				if fpath.is_dir() {
+					que.enqueue(fpath,);
+				} else if fpath.is_file() {
+					if fpath.file_name().unwrap().to_str().unwrap().contains(target,) {
+						rslt.push(fpath,);
+					}
+				} else {
+					return Err(anyhow!(
+						"failed to determine the path is dor or file. path may be broken symlink. \
+						 fix problem"
+					),);
+				}
+			}
+		}
+
+		Ok(rslt,)
+	}
+
+	/// この関数は決め打ちで、とりあえず最初にターゲットファイルであろうものを推測して`self.cli.
+	/// target_file`に格納する関数です
+	fn init_pick(&mut self,) -> Result<(),> {
+		if self.cli.tarrget_file.is_none() {
+			if let Some(target,) = self.cli.target_hint(None,) {
+				let cands = self.lookdown(target,)?;
+				if !cands.is_empty() {
+					self.cli.tarrget_file = Some(cands[0],)
+				}
+			}
+		}
+		Ok((),)
+	}
+
 	/// # 前提
 	///
 	/// この関数は、`self.project_root`と`self.cli.project_type`が正しく検出されている
-	/// ことを前提とします
+	/// ことを前提とします</br>
 	///
 	/// # Panic
 	///
-	/// ```rs
+	/// ```rust
 	/// assert!(self.cli.project_type.is_some());
 	/// ```
 	///
-	/// # TODO:
+	/// # TODO
 	///
-	/// - プログラムのエントリーポイントを検出する
+	/// - プログラムのエントリーポイント（コマンドによっては開きたいファイル）を検出する
+	///
+	/// # FIX
+	///
+	/// - 検索の条件として引数`opts`を受け取り、条件に合うファイルのベクトルを返す
 	fn target_file(&mut self,) -> Result<(),> {
 		use cli::ProjectType::*;
 		assert!(self.cli.project_type.is_some());
+
 		if self.cli.tarrget_file.is_none() {
-			match self.cli.project_type.as_ref().unwrap() {
-				RustNvimConfig => todo!(),
-				Cargo => (),
-				Rust => todo!(),
+			self.cli.tarrget_file = match self.cli.project_type.as_ref().unwrap() {
+				RustNvimConfig => {
+					let mut cargo_toml = self.project_root.clone();
+					cargo_toml.push("Cargo.toml",);
+					let config = parser::toml::des_toml(&cargo_toml,)?;
+					match config.get("package",).unwrap() {
+						toml::Value::Table(pkg,) => match pkg.get("name",).unwrap() {
+							toml::Value::String(pkg_name,) => Some(PathBuf::from(pkg_name,),),
+							_ => unreachable!("package name should be declared in Cargo.toml"),
+						},
+						_ => unreachable!("package table should be exist on Cargo.toml"),
+					}
+				},
+				// `cargo`コマンドがエントリポイントを検出するので何もしない
+				Cargo => None,
+				Rust => {
+					use crate::parser::rust;
+					let sources = self.lookdown(".rs",)?;
+					let mut rslt = None;
+					for fp in sources {
+						let ast = rust::get_rs_ast(fp.to_str().unwrap(),)?;
+						if rust::get_fn(&ast, "main",).is_some() {
+							rslt = Some(fp,);
+						}
+					}
+
+					if rslt.is_none() {
+						return Err(anyhow!(
+							"project_type: Rust requires target_file, but `ac` could not \
+							 determine target_file"
+						),);
+					}
+					rslt
+				},
+				Scheme | Lisp | Lua | TypeScript | C | CPP | Swift | Python => {
+					use cli::Command::*;
+					let target = match self.cli.command.as_ref().unwrap() {
+						Run => todo!(),
+						Test => todo!(),
+						Fix => todo!(),
+						Init => todo!(),
+						Make => todo!(),
+						New => todo!(),
+						Build => todo!(),
+						Deploy => todo!(),
+						Open => todo!(),
+						Config => todo!(),
+					};
+					Some(self.lookdown("main",)?[0],)
+				},
 				// tarrget_file is required by open command. open by title, not slug
-				Zenn => (),
+				Zenn => todo!(),
 				Markdown => todo!(),
 				LuaNvimConfig => todo!(),
-				Lua => todo!(),
-				TypeScript => todo!(),
 				GAS => todo!(),
-				WebSite => todo!(),
+				WebSite => Some(self.lookdown("index.html",)?[0],),
 				C => todo!(),
 				CPP => todo!(),
 				Swift => todo!(),
@@ -239,6 +332,7 @@ impl ProjectManager {
 	}
 }
 
+/// ---
 /// この構造体は初期化時に設定ファイルのエラーをチェックし、問題なければロードします
 /// TODO: `ProjectManagerConfig`から`ProjectManagerPlugin`に改名し、設定をプラグインとして読み込む
 /// サードパーティのプラグインのサポートを追加する
@@ -246,4 +340,17 @@ pub struct ProjectManagerConfig {}
 
 impl ProjectManagerConfig {
 	pub fn load() -> Result<Self,> { todo!() }
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn path_representation_of_dir() -> Result<(),> {
+		let cur_dir = std::env::current_dir()?;
+		assert_eq!(cur_dir.to_str().unwrap(), "/Users/a/Downloads/rust/ac");
+		assert!(cur_dir.is_dir());
+		Ok((),)
+	}
 }
