@@ -6,18 +6,18 @@
 //! - [ ] ↑を英語に(何かしらの翻訳サービス使いたい)
 //! - [ ] コマンドの機能をライブラリとして提供する `libac`
 //! - [ ] ↑その上で、lspのように`ac`にプロトコルとしての役割を持たせる。言うなればdep(stands for
-//! develping environment protocol)
+//!   develping environment protocol)
 //! - [ ] 履歴機能の追加
 
 use anyhow::anyhow;
 use anyhow::Result;
-use cli::ProjectType;
-use project::ProjectManager;
+use execution_detail::ProjectType;
+use project_manager::ProjectManager;
 use std::path::PathBuf;
 
-mod cli;
+mod execution_detail;
 mod parser;
-mod project;
+mod project_manager;
 mod util {
 
 	#[derive(Debug,)]

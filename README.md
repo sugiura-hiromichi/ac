@@ -10,14 +10,20 @@ enables easy integration to an editor.
 Order is priority
 
 1. Rust: `.rs`
-   - cargo project
-   - nvim config
+
+- cargo project
+- nvim config
+
 1. Markdown: `.md`
-   - zenn article
+
+- zenn article
+
 1. Lua: `.lua`
 1. TypeScript: `.ts`, `tsx`
-   - GAS project deploy
-   - web generate
+
+- GAS project deploy
+- web generate
+
 1. TOML: `.toml`
 1. C/C++: `.c`, `.cpp`, `.h?`
 1. HTML: `.html`
@@ -33,10 +39,21 @@ Order is priority
 自分でも何言ってるかよくわかってないです
 
 ---
+
+*italic* **bold** ***bold_italic***
+
+~~strikethorough~~
+
 幅広い層のエンジニアの要望を叶えることはあまり視野に入れてません
 むしろ長期的には日本のエンジニアに焦点を当てて開発を進めていきたいですね
 `zenn-cli`のサポート何かは分かり易いですが、
 言うなれば日本ローカルなユーティリティコマンドを作りたいというのが長期目標のモチベーションです
+
+<!--
+ TODO:
+
+ NOTE:
+ -->
 
 # TODO
 
@@ -44,4 +61,4 @@ Order is priority
 
 # Acknowledgements
 
-- [make](https://www.gnu.org/software/make/)
+- [just](https://github.com/casey/just)

@@ -1,9 +1,8 @@
-use crate::cli;
+use crate::execution_detail;
 use crate::parser;
 use crate::util;
 use anyhow::anyhow;
 use anyhow::Result;
-use std::fmt::Result;
 use std::path::PathBuf;
 use strum::IntoEnumIterator;
 
@@ -11,7 +10,7 @@ use strum::IntoEnumIterator;
 /// - `ac`に渡された引数が適切か確認し、問題があればユーザーと対話しながら修正する
 /// - 上記の手順を通じてチェックされたデータを元に`ac`が対象とするプロジェクトを管理します
 pub struct ProjectManager {
-	cli:          cli::Cli,
+	cli:          execution_detail::Cli,
 	work_dir:     PathBuf,
 	project_root: PathBuf,
 	config:       ProjectManagerConfig,
@@ -21,7 +20,7 @@ impl ProjectManager {
 	pub fn init() -> Result<Self,> {
 		let cur_dir = std::env::current_dir()?;
 		let mut pm = Self {
-			cli:          cli::Cli::init(),
+			cli:          execution_detail::Cli::init(),
 			work_dir:     cur_dir.clone(),
 			project_root: cur_dir,
 			config:       ProjectManagerConfig::load()?,
@@ -58,7 +57,7 @@ impl ProjectManager {
 	/// - プロジェクトルートを探す際に`.git/`を考慮する
 	/// - 設定を反映する
 	fn root_and_type(&mut self,) -> Result<(),> {
-		use cli::ProjectType::*;
+		use execution_detail::ProjectType::*;
 		match self.cli.project_type {
 			// ユーザーがプロジェクトタイプを指定した場合
 			Some(ref pt,) => match pt {
@@ -81,6 +80,23 @@ impl ProjectManager {
 						Some(p,) => self.project_root = p,
 						None => self.missed_project()?,
 					}
+				},
+				Just => {
+					if let Some(p,) = self.lookup("justfile",)? {
+						self.project_root = p;
+					}
+				},
+				DotFiles => {
+					self.project_root = match std::env::var("XDG_CONFIG_HOME",) {
+						Ok(p,) => p,
+						Err(_,) => match std::env::var("HOME",) {
+							Ok(p,) => p,
+							Err(_,) => {
+								unimplemented!("set environment vairable HOME or XDG_CONFIG_HOME")
+							},
+						},
+					}
+					.into();
 				},
 				Scheme => todo!(),
 				Lisp => todo!(),
@@ -146,7 +162,7 @@ impl ProjectManager {
 			None => {
 				// PERF: `self.work_dir`にあるファイル、
 				// フォルダの情報を元にある程度プロジェクトタイプを絞る
-				for pt in cli::ProjectType::iter() {
+				for pt in execution_detail::ProjectType::iter() {
 					self.cli.project_type = Some(pt,);
 					if self.root_and_type().is_ok() {
 						break;
@@ -236,7 +252,7 @@ impl ProjectManager {
 			if let Some(target,) = self.cli.target_hint(None,) {
 				let cands = self.lookdown(target,)?;
 				if !cands.is_empty() {
-					self.cli.tarrget_file = Some(cands[0],)
+					self.cli.tarrget_file = Some(cands[0].clone(),);
 				}
 			}
 		}
@@ -260,9 +276,9 @@ impl ProjectManager {
 	///
 	/// # FIX
 	///
-	/// - 検索の条件として引数`opts`を受け取り、条件に合うファイルのベクトルを返す
+	/// - 検索の条件として引数`opts`を受け取り、条件に合うファイルのパスを返す
 	fn target_file(&mut self,) -> Result<(),> {
-		use cli::ProjectType::*;
+		use execution_detail::ProjectType::*;
 		assert!(self.cli.project_type.is_some());
 
 		if self.cli.tarrget_file.is_none() {
@@ -300,19 +316,21 @@ impl ProjectManager {
 					}
 					rslt
 				},
+				Just => todo!(),
+				DotFiles => todo!(),
 				Scheme | Lisp | Lua | TypeScript | C | CPP | Swift | Python => {
-					use cli::Command::*;
+					use execution_detail::Command::*;
 					let target = match self.cli.command.as_ref().unwrap() {
 						Run => todo!(),
 						Test => todo!(),
 						Fix => todo!(),
 						Init => todo!(),
-						Make => todo!(),
 						New => todo!(),
 						Build => todo!(),
-						Deploy => todo!(),
+						Upload => todo!(),
 						Open => todo!(),
 						Config => todo!(),
+						Install => todo!(),
 					};
 					Some(self.lookdown("main",)?[0],)
 				},
@@ -321,7 +339,7 @@ impl ProjectManager {
 				Markdown => todo!(),
 				LuaNvimConfig => todo!(),
 				GAS => todo!(),
-				WebSite => Some(self.lookdown("index.html",)?[0],),
+				WebSite => Some(self.lookdown("index.html",)?[0].clone(),),
 				C => todo!(),
 				CPP => todo!(),
 				Swift => todo!(),

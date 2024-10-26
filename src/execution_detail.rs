@@ -50,11 +50,14 @@ impl Cli {
 		use Command::*;
 		use ProjectType::*;
 		match self.project_type.as_ref().unwrap() {
-			&RustNvimConfig | &Cargo | &Markdown | &GAS | &LuaNvimConfig | &Zenn => None,
+			&RustNvimConfig | &Cargo | &Markdown | &GAS | &LuaNvimConfig | &Zenn | &DotFiles => {
+				None
+			},
 			&Rust | &Scheme | &Lisp | &Lua | &TypeScript | &C | &CPP | &Swift | &Python => {
 				self.command.as_ref().unwrap().default_target()
 			},
 			WebSite => Some("index.html",),
+			Just => Some("justfile",),
 		}
 	}
 }
@@ -70,15 +73,15 @@ pub enum Command {
 	Fix,
 	Init,
 	// makefile support
-	Make,
 	/// TODO: currently `pm` only support creating a new file. add feature of creating new project
 	New,
 	// filetype specific commands
 	Build,
-	Deploy,
+	Upload,
 	Open,
 	// open config file e.g. Cargo.toml
 	Config,
+	Install,
 }
 
 impl Command {
@@ -87,7 +90,6 @@ impl Command {
 		match self {
 			&Run | &Build => Some("main",),
 			&Test => Some("test",),
-			&Make => Some("Makefile",),
 			_ => None,
 		}
 	}
@@ -98,10 +100,14 @@ pub enum ProjectType {
 	RustNvimConfig,
 	Cargo,
 	Rust,
+	Just,
 	Scheme,
 	Lisp,
+	// TODO: Add Node support
 	Zenn,
 	Markdown,
+	DotFiles,
+	// assumes executed within neovim
 	LuaNvimConfig,
 	Lua,
 	TypeScript,
@@ -116,4 +122,27 @@ pub enum ProjectType {
 
 impl ProjectType {
 	pub fn valid_commands(&self,) -> Vec<Command,> { todo!() }
+
+	pub fn binary(&self,) -> &str {
+		use ProjectType::*;
+		match self {
+			RustNvimConfig | Cargo => "cargo",
+			Rust => "rustc",
+			Just => "just",
+			DotFiles => todo!(),
+			Scheme => "chibi-scheme",
+			Lisp => "sbcl",
+			Zenn => "zenn",
+			Markdown => todo!(),
+			LuaNvimConfig => todo!(),
+			Lua => "luajit",
+			TypeScript => "tsx",
+			GAS => "clasp",
+			WebSite => todo!(),
+			C => "clang",
+			CPP => "clang++",
+			Swift => "swiftc",
+			Python => "python3",
+		}
+	}
 }
